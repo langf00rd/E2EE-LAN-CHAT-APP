@@ -1,0 +1,19 @@
+{
+  "name": "eee",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node apps/server/index.js",
+    "dev": "nodemon apps/server/index.js",
+    "build": "esbuild apps/server/index.js --bundle --platform=node --outfile=out/index.bundle.js"
+  },
+  "keywords": [],
+  "author": "langford",
+  "license": "ISC",
+  "dependencies": {
+    "esbuild": "^0.27.2",
+    "nodemon": "^3.1.11",
+    "ws": "^8.19.0"
+  }
+}

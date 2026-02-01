@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+    <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            body {
+                font-family: "JetBrains Mono", monospace;
+                max-width: 900px;
+                margin: 50px auto;
+                padding: 20px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+            }
+            th,
+            td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            td {
+                color: #727272;
+            }
+            th {
+                background: #000;
+                color: white;
+            }
+            tr:hover {
+                background: #f5f5f5;
+            }
+            code {
+                background-color: #e0e0e0;
+                padding: 1px 3px;
+            }
+        </style>
+    </head>
+    <main>
+        <p>
+            <strong>SERVER URL</strong>
+            <code id="ni_server_url"></code>
+        </p>
+        <p>
+            <strong>WEB SOCKET URL</strong>
+            <code id="ni_web_socket_url"></code>
+        </p>
+        <p>
+            <strong>CHAT CLIENT URL</strong>
+            <code id="ni_chat_client_url"></code>
+        </p>
+        <div id="peers_table" />
+    </main>
+    <script>
+        async function fetchInfo() {
+            try {
+                const response = await fetch("/info");
+                const data = await response.json();
+                document.getElementById("ni_server_url").textContent =
+                    data.data.server_url;
+                document.getElementById("ni_web_socket_url").textContent =
+                    data.data.web_socket_url;
+                document.getElementById("ni_chat_client_url").textContent =
+                    data.data.chat_client_url;
+            } catch (err) {
+                console.error("Error fetching info:", err);
+            }
+        }
+
+        async function fetchUsers() {
+            try {
+                const response = await fetch("/peers");
+                const data = await response.json();
+                console.log("data", data);
+                const table = document.createElement("table");
+                table.classList.add("table");
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>ID</th>
+                            <th>USERNAME</th>
+                            <th>IN ROOM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.data.connected_peers
+                            .map(
+                                (peer) => `
+                            <tr>
+                                <td>${peer.ip}</td>
+                                <td>${peer.id}</td>
+                                <td>${peer.username}</td>
+                                <td>${peer.room_id ? "Y" : "N"}</td>
+                            </tr>
+                        `,
+                            )
+                            .join("")}
+                    </tbody>
+                `;
+                document.getElementById("peers_table").appendChild(table);
+            } catch (err) {
+                console.error("Error fetching info:", err);
+            }
+        }
+
+        fetchInfo();
+        fetchUsers();
+
+        setInterval(() => {
+            window.location.reload();
+        }, 2000);
+    </script>
+</html>
