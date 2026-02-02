@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # trap Ctrl+C to clean up
 trap "echo 'interrupted! cleaning up...'; rm -rf node-v24.13.0-darwin-arm64; exit 1" SIGINT
 

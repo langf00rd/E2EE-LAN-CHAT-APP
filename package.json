@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node out/index.js",
+    "start": "bash out/start.sh",
     "dev": "nodemon apps/server/index.js",
-    "build": "rm -rf out && ncc build apps/server/index.js -o out"
+    "build": "bash ./build.sh"
   },
   "keywords": [],
   "author": "langford",
