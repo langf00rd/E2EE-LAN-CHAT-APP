@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WiFi Chat Client</title>
+        <style>
+            :root {
+                --bg: #fafafa;
+                --panel: #ffffff;
+                --border: #e5e7eb;
+                --muted: #6b7280;
+                --text: #111827;
+                --accent: #111827;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                padding: 24px;
+                font-family:
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    Roboto,
+                    "Helvetica Neue",
+                    Arial;
+                background: var(--bg);
+                color: var(--text);
+            }
+
+            .container {
+                max-width: 640px;
+                margin: 0 auto;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background: var(--panel);
+                overflow: hidden;
+            }
+
+            .header {
+                padding: 16px 20px;
+                border-bottom: 1px solid var(--border);
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .status {
+                padding: 8px 20px;
+                font-size: 12px;
+                color: var(--muted);
+                text-align: center;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .status.connected {
+                background-color: #1a79302e;
+                color: #0b6414;
+            }
+
+            .status.disconnected {
+                background-color: #e72b2b2e;
+                color: #640b0b;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .chat {
+                display: none;
+            }
+
+            h2 {
+                font-size: 14px;
+                font-weight: 500;
+                margin-bottom: 12px;
+            }
+
+            .info {
+                font-size: 12px;
+                color: var(--muted);
+                margin-bottom: 12px;
+            }
+
+            code {
+                background: #f3f4f6;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 12px;
+            }
+
+            input,
+            button {
+                width: 100%;
+                height: 36px;
+                padding: 0 10px;
+                font-size: 13px;
+                border-radius: 6px;
+                border: 1px solid var(--border);
+                background: #fff;
+                color: var(--text);
+            }
+
+            input:focus {
+                outline: none;
+                border-color: #9ca3af;
+            }
+
+            button {
+                cursor: pointer;
+                background: var(--accent);
+                color: #fff;
+                font-weight: 500;
+            }
+
+            button.secondary {
+                background: #fff;
+                color: var(--text);
+            }
+
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .stack {
+                display: flex;
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .stack > * {
+                flex: 1;
+            }
+
+            .messages {
+                height: 360px;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 12px;
+                overflow-y: auto;
+                background: #fafafa;
+                font-size: 13px;
+            }
+
+            .message {
+                margin-bottom: 8px;
+            }
+
+            .message.system {
+                color: var(--muted);
+                font-style: italic;
+            }
+
+            .username {
+                font-weight: 500;
+                margin-right: 4px;
+            }
+
+            .time {
+                float: right;
+                font-size: 11px;
+                color: var(--muted);
+            }
+
+            .room-bar {
+                font-size: 12px;
+                color: var(--muted);
+                margin-bottom: 12px;
+            }
+
+            .room-bar button {
+                margin-top: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!--<div class="header">WiFi Chat</div>-->
+            <div class="status disconnected" id="status">Disconnected</div>
+
+            <div class="section setup" id="setup">
+                <div>
+                    <h2>Enter a username</h2>
+                    <div class="info" style="margin-top: -8px">
+                        Usernames should not contain any PII (Personally
+                        Identifiable Information)
+                    </div>
+                </div>
+                <input id="username" placeholder="Username" name="username" />
+                <div class="stack">
+                    <button onclick="connect()">Connect</button>
+                </div>
+            </div>
+
+            <div class="section chat" id="chat">
+                <div class="room-bar">
+                    Room: <code id="currentRoom">None</code>
+                    <button
+                        id="leaveBtn"
+                        class="secondary"
+                        onclick="leaveRoom()"
+                        style="display: none"
+                    >
+                        Leave
+                    </button>
+                </div>
+
+                <div class="stack">
+                    <button onclick="createRoom()">New Room</button>
+                    <input id="joinroom_id" placeholder="Room ID" />
+                    <button onclick="joinRoom()">Join</button>
+                </div>
+
+                <div class="messages" id="messages"></div>
+
+                <div class="stack">
+                    <input
+                        id="messageInput"
+                        placeholder="Message"
+                        onkeypress="if(event.key==='Enter') sendMessage()"
+                    />
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let ws = null;
+            let userId = null;
+            let currentroom_id = null;
+            let webSocketURL = null;
+
+            async function fetchInfo() {
+                try {
+                    const response = await fetch("/info");
+                    const data = await response.json();
+                    webSocketURL = data.data.web_socket_url;
+                } catch (err) {
+                    console.error("Error fetching info:", err);
+                }
+            }
+
+            fetchInfo();
+
+            function connect() {
+                const username = document.getElementById("username").value;
+
+                if (!username) return alert("username is required");
+
+                ws = new WebSocket(webSocketURL);
+
+                ws.onopen = () => {
+                    updateStatus("Connected", true);
+                    ws.send(
+                        JSON.stringify({
+                            type: "set_username",
+                            payload: { username, ip: window.location.hostname },
+                        }),
+                    );
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                };
+
+                ws.onclose = () => {
+                    updateStatus("Disconnected", false);
+                    document.getElementById("setup").style.display = "block";
+                    document.getElementById("chat").style.display = "none";
+                };
+
+                ws.onerror = (error) => {
+                    console.error("WebSocket error:", error);
+                    alert(
+                        "Connection failed. Check server IP and make sure server is running.",
+                    );
+                };
+            }
+
+            function handleMessage(data) {
+                const { type, message, room_id, username, text, timestamp } =
+                    data;
+
+                switch (type) {
+                    case "connected":
+                        userId = data.userId;
+                        addSystemMessage(message);
+                        break;
+
+                    case "username_set":
+                        document.getElementById("setup").style.display = "none";
+                        document.getElementById("chat").style.display = "block";
+                        addSystemMessage(`Username set to: ${data.username}`);
+                        break;
+
+                    case "room_created":
+                        currentroom_id = room_id;
+                        updateRoomDisplay(room_id);
+                        addSystemMessage(
+                            `Room created! Share this ID with others: ${room_id}`,
+                        );
+                        break;
+
+                    case "room_joined":
+                        currentroom_id = room_id;
+                        updateRoomDisplay(room_id);
+                        addSystemMessage(`Joined room: ${room_id}`);
+                        break;
+
+                    case "room_left":
+                        currentroom_id = null;
+                        updateRoomDisplay(null);
+                        addSystemMessage("Left the room");
+                        break;
+
+                    case "user_joined":
+                        addSystemMessage(`${username} joined the room`);
+                        break;
+
+                    case "user_left":
+                        addSystemMessage(`${username} left the room`);
+                        break;
+
+                    case "message":
+                        addMessage(username, text, timestamp);
+                        break;
+
+                    case "error":
+                        addSystemMessage(`Error: ${message}`);
+                        break;
+                }
+            }
+
+            function createRoom() {
+                if (!ws) return;
+                ws.send(JSON.stringify({ type: "create_room" }));
+            }
+
+            function joinRoom() {
+                const room_id = document
+                    .getElementById("joinroom_id")
+                    .value.trim();
+                if (!room_id) {
+                    alert("Please enter a room ID");
+                    return;
+                }
+                ws.send(
+                    JSON.stringify({
+                        type: "join_room",
+                        payload: { room_id },
+                    }),
+                );
+                document.getElementById("joinroom_id").value = "";
+            }
+
+            function leaveRoom() {
+                if (!ws) return;
+                ws.send(JSON.stringify({ type: "leave_room" }));
+            }
+
+            function sendMessage() {
+                const input = document.getElementById("messageInput");
+                const text = input.value.trim();
+
+                if (!text || !currentroom_id) return;
+
+                ws.send(
+                    JSON.stringify({
+                        type: "message",
+                        payload: { text },
+                    }),
+                );
+
+                input.value = "";
+            }
+
+            function updateStatus(text, connected) {
+                const status = document.getElementById("status");
+                status.textContent = text;
+                status.className = connected
+                    ? "status connected"
+                    : "status disconnected";
+            }
+
+            function updateRoomDisplay(room_id) {
+                const display = document.getElementById("currentRoom");
+                const leaveBtn = document.getElementById("leaveBtn");
+
+                if (room_id) {
+                    display.textContent = room_id;
+                    leaveBtn.style.display = "block";
+                } else {
+                    display.textContent = "Not in a room";
+                    leaveBtn.style.display = "none";
+                    document.getElementById("messages").innerHTML = "";
+                }
+            }
+
+            function addSystemMessage(text) {
+                const messages = document.getElementById("messages");
+                const msg = document.createElement("div");
+                msg.className = "message system";
+                msg.textContent = text;
+                messages.appendChild(msg);
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+            function addMessage(username, text, timestamp) {
+                const messages = document.getElementById("messages");
+                const msg = document.createElement("div");
+                msg.className = "message";
+
+                const time = new Date(timestamp).toLocaleTimeString();
+                msg.innerHTML = `
+        <span class="time">${time}</span>
+        <span class="username">${username}:</span>
+        <span>${text}</span>
+      `;
+
+                messages.appendChild(msg);
+                messages.scrollTop = messages.scrollHeight;
+            }
+        </script>
+    </body>
+</html>

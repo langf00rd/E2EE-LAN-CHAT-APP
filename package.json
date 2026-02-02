@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node apps/server/index.js",
+    "start": "node out/index.js",
     "dev": "nodemon apps/server/index.js",
-    "build": "esbuild apps/server/index.js --bundle --platform=node --outfile=out/index.bundle.js"
+    "build": "rm -rf out && ncc build apps/server/index.js -o out"
   },
   "keywords": [],
   "author": "langford",
